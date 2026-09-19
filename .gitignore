@@ -1,0 +1,12 @@
+node_modules
+.next
+*.tsbuildinfo
+.env*
+!.env.example
+
+out/
+.vercel/
+.netlify/
+.agents/
+.codex/
+*.log
