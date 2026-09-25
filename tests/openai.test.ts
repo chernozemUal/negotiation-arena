@@ -24,7 +24,7 @@ test('negotiation prompt includes persona, stage, history, and the new reply', (
   const prompt = buildNegotiationPrompt(config, [first], next, 1);
   assert.match(prompt.instructions, /Александр Морозов/);
   assert.match(prompt.instructions, /не упоминай ИИ/i);
-  assert.match(prompt.input, /Выяснить интересы/);
+  assert.match(prompt.input, /Сверить позиции/);
   assert.match(prompt.input, /Продолжим разговор/);
   assert.match(prompt.input, new RegExp(next.text.replace(/[?]/g, '\\?')));
 });
@@ -64,7 +64,7 @@ test('generation uses Responses API without server-side storage', async () => {
     assert.equal(reply, 'Гарантированный объём меняет ситуацию.');
     assert.equal(requestBody.model, 'gpt-4.1-mini');
     assert.equal(requestBody.store, false);
-    assert.equal(requestBody.max_output_tokens, 180);
+    assert.equal(requestBody.max_output_tokens, 280);
   } finally {
     globalThis.fetch = original;
   }

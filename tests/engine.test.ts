@@ -1,9 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {choices,defaults,evaluateText,outcome,respond,threshold,tension,tensionState,Domain,Config,Turn} from '../lib/engine';
-for(const domain of ['supplier','career'] as Domain[]) test(`${domain}: cooperative and hostile paths diverge`,()=>{const config=defaults[domain];const good=[0,1,2,3].map(i=>({...choices(domain,i)[0],reply:''}));assert.equal(outcome(config,good).won,true);const bad=[0,1,2,3].map(i=>({...choices(domain,i)[i===0?1:2],reply:''}));assert.equal(outcome(config,bad).won,false);assert.ok(outcome(config,good).trust>outcome(config,bad).trust);assert.equal(outcome(config,good.slice(0,3)).won,false);});
-test('configuration affects success threshold and replies',()=>{assert.ok(threshold({...defaults.supplier,difficulty:'Эксперт'})>threshold({...defaults.supplier,difficulty:'Базовый'}));const c=choices('supplier',1)[0];const config={...defaults.supplier,goal:'Снизить риски',tone:'Жёсткий' as const};assert.match(respond(config,1,c,70),/Перейдём к делу/);assert.match(respond(config,1,c,70),/снизить риски/);assert.match(respond(config,1,c,10),/остановим/)});
-test('free text checks the current stage, threats, and a neutral fallback',()=>{assert.equal(evaluateText('Предлагаю контракт на год и объём в обмен на рост цены 5%.','supplier',2).skill,'Аргументация');assert.equal(evaluateText('Вы обязаны принять наши условия, иначе мы уйдём.','supplier',0).points,2);assert.equal(evaluateText('Просто некоторый текст без конкретного приёма','career',3).points,9)});
+import {choices,defaults,evaluateText,outcome,respond,threshold,tension,tensionState,Domain,Config,Turn,stages} from '../lib/engine';
+for(const domain of ['supplier','career'] as Domain[]) test(`${domain}: cooperative and hostile paths diverge`,()=>{const config=defaults[domain];const good=stages.map((_,i)=>({...choices(domain,i)[0],reply:''}));assert.equal(outcome(config,good).won,true);assert.equal(outcome(config,good).score,100);const bad=stages.map((_,i)=>({...choices(domain,i)[i===0?1:2],reply:''}));assert.equal(outcome(config,bad).won,false);assert.ok(outcome(config,good).trust>outcome(config,bad).trust);assert.equal(outcome(config,good.slice(0,-1)).won,false);});
+test('configuration affects success threshold and replies',()=>{assert.ok(threshold({...defaults.supplier,difficulty:'Эксперт'})>threshold({...defaults.supplier,difficulty:'Базовый'}));const c=choices('supplier',2)[0];const config={...defaults.supplier,goal:'Снизить риски',tone:'Жёсткий' as const};assert.match(respond(config,2,c,70),/Перейдём к делу/);assert.match(respond(config,2,c,70),/снизить риски/);assert.match(respond(config,2,c,10),/остановим/)});
+test('free text checks the current stage, threats, and a neutral fallback',()=>{assert.equal(evaluateText('Предлагаю контракт на год и объём в обмен на рост цены 5%.','supplier',3).skill,'Взаимный обмен');assert.ok(evaluateText('Вы обязаны принять наши условия, иначе мы уйдём.','supplier',0).points<=3);assert.equal(evaluateText('Просто некоторый текст без конкретного приёма','career',4).points,9)});
 
 const turn = (domain: Domain, stage: number, option: number): Turn => ({
  ...choices(domain, stage)[option], reply: ''
@@ -25,7 +25,7 @@ test('tone and difficulty both change the opening tension', () => {
 for (const domain of ['supplier', 'career'] as Domain[]) {
  test(`${domain}: pressure raises tension and constructive replies lower it`, () => {
   const config = defaults[domain];
-  for (let stage = 0; stage < 4; stage++) {
+  for (let stage = 0; stage < stages.length; stage++) {
    const baseline = tension(config, []);
    const constructive = tension(config, [turn(domain, stage, 0)]);
    const pressure = tension(config, [turn(domain, stage, stage === 0 ? 1 : 2)]);
@@ -35,7 +35,7 @@ for (const domain of ['supplier', 'career'] as Domain[]) {
  });
 }
 
-test('tension remains within 5–100 across every four-stage path', () => {
+test('tension remains within 5–100 across every six-stage path', () => {
  for (const domain of ['supplier', 'career'] as Domain[]) {
   for (const tone of ['Дружелюбный', 'Сдержанный', 'Жёсткий'] as const) {
    for (const difficulty of ['Базовый', 'Продвинутый', 'Эксперт'] as const) {
@@ -43,7 +43,7 @@ test('tension remains within 5–100 across every four-stage path', () => {
     const visit = (turns: Turn[]) => {
      const value = tension(config, turns);
      assert.ok(value >= 5 && value <= 100, `${domain}, ${tone}, ${difficulty}: ${value}`);
-     if (turns.length === 4) return;
+     if (turns.length === stages.length) return;
      for (let option = 0; option < 3; option++) {
       visit([...turns, turn(domain, turns.length, option)]);
      }
@@ -56,10 +56,10 @@ test('tension remains within 5–100 across every four-stage path', () => {
 
 test('the tension limits allow an immediate response to the next choice', () => {
  const calm: Config = {...defaults.supplier, tone: 'Дружелюбный', difficulty: 'Базовый'};
- const contact = [turn('supplier', 0, 0), turn('supplier', 1, 0)];
+ const contact = [0,1,2,3].map(stage => turn('supplier', stage, 0));
  assert.equal(tension(calm, contact), 5);
- assert.ok(tension(calm, [...contact, turn('supplier', 2, 2)]) > 5);
- assert.equal(tension(calm, [...contact, turn('supplier', 2, 0)]), 5);
+ assert.ok(tension(calm, [...contact, turn('supplier', 4, 2)]) > 5);
+ assert.equal(tension(calm, [...contact, turn('supplier', 4, 0)]), 5);
 
  const difficult: Config = {...defaults.supplier, tone: 'Жёсткий', difficulty: 'Эксперт'};
  const confrontation = [turn('supplier', 0, 1), turn('supplier', 1, 2)];

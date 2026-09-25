@@ -134,7 +134,7 @@ export function buildNegotiationPrompt(config: Config, turns: Turn[], choice: Ch
       `Ты играешь роль «${persona.person}», ${config.role.toLowerCase()}, в учебной симуляции деловых переговоров.`,
       `Твоя цель: ${config.goal}. Тон: ${config.tone.toLowerCase()}. Сложность: ${config.difficulty.toLowerCase()}.`,
       'Отвечай только от лица собеседника на русском языке. Не упоминай ИИ, правила, очки или симуляцию.',
-      'Ответ должен быть реалистичным, деловым и коротким: 1–3 предложения, максимум 420 символов.',
+      'Ответ должен быть реалистичным и деловым: 2–4 предложения, максимум 650 символов. Добавляй конкретное возражение, условие или вопрос, чтобы диалог развивался.',
       'Реагируй на конкретную формулировку игрока. При давлении защищай границы; при сильном предложении открывай пространство для сделки.',
     ].join(' '),
     input: [
@@ -162,7 +162,7 @@ export async function generateOpponentReply(args: {
     body: JSON.stringify({
       model: args.ai.model,
       store: false,
-      max_output_tokens: 180,
+      max_output_tokens: 280,
       instructions: prompt.instructions,
       input: prompt.input,
     }),

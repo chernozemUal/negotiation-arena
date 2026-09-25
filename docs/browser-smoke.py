@@ -1,10 +1,13 @@
 """UI regression: run npm start and chromedriver --port=9515, then python docs/browser-smoke.py."""
-import urllib.request,json,time,base64,os
+import urllib.request,urllib.error,json,time,base64,os
 base=os.environ.get('WEBDRIVER_URL','http://127.0.0.1:9515')
 app=os.environ.get('ARENA_URL','http://127.0.0.1:3000')
 def req(path,data=None,method=None):
     request=urllib.request.Request(base+path,data=json.dumps(data).encode() if data is not None else None,headers={'Content-Type':'application/json'},method=method or ('POST' if data is not None else 'GET'))
-    with urllib.request.urlopen(request) as response: value=json.load(response)['value']
+    try:
+        with urllib.request.urlopen(request) as response: value=json.load(response)['value']
+    except urllib.error.HTTPError as error:
+        raise AssertionError(error.read().decode()) from error
     if isinstance(value,dict) and 'error' in value: raise AssertionError(value)
     return value
 session=req('/session',{'capabilities':{'alwaysMatch':{'browserName':'chrome','goog:chromeOptions':{'args':['--headless','--no-sandbox','--disable-dev-shm-usage','--window-size=1440,900']},'goog:loggingPrefs':{'browser':'ALL'}}}})['sessionId']
@@ -41,29 +44,33 @@ try:
         size(320,568);fits('.welcome-controls, .chapter')
         assert js('return document.querySelector(".chapter").scrollHeight<=document.querySelector(".chapter").clientHeight+1'),'legend content clipping'
         size(390,844)
-    has('В «Настройках»');button('Войти в арену');has('Любой разговор')
+    has('В настройках доступны');button('Войти в арену');has('Любой разговор')
     for w,h in [(1440,900),(1366,768),(390,844),(375,667),(320,568)]:
         size(w,h);fits('.scenario-card, .custom-banner, .nav-item')
         assert js('return [...document.querySelectorAll(".scenario-card")].every(e=>e.scrollHeight<=e.clientHeight+1)'),('card clipping',w,h)
         if w==390:snap('menu-mobile')
     size(1440,900);snap('menu-desktop')
     click('.scenario-card.supplier');button('Начать переговоры');has('Напряжённость')
+    assert js('return !!document.querySelector("[aria-label=\\"Начать голосовой ввод\\"]")')
+    assert js('return !!document.querySelector("[aria-label=\\"Озвучить первую реплику\\"]")')
     initial=int(js('return document.querySelector(".negotiation").dataset.tension'))
     for w,h in [(1366,768),(390,844),(375,667),(320,568)]:
         size(w,h);fits('.options button, .input-row, .opponent')
+        assert float(js('return parseFloat(getComputedStyle(document.querySelector(".options button")).fontSize)'))>=11,('small option text',w,h)
+        assert float(js('return parseFloat(getComputedStyle(document.querySelector(".message")).fontSize)'))>=12,('small dialogue text',w,h)
         assert js('return document.querySelector(".conversation").scrollHeight <= document.querySelector(".conversation").clientHeight+1'),('conversation clipping',w,h)
     size(390,844);snap('dialog-mobile')
     click('.options button:nth-child(2)')
     assert int(js('return document.querySelector(".negotiation").dataset.tension'))>initial
     click('.options button:nth-child(3)');has('На грани срыва');assert js('return !!document.querySelector(".tension-high")')
     size(1440,900);snap('tension-desktop')
-    for _ in range(2):click('.options button:nth-child(3)')
+    for _ in range(4):click('.options button:nth-child(3)')
     button('Посмотреть разбор');has('Каждая попытка делает вас сильнее.')
     for w,h in [(1366,768),(390,844),(375,667)]:
         size(w,h);fits('.review-tabs, .result-footer, .result-metrics')
-    click('.review-tabs button:nth-child(3)');has('Это моё последнее предложение')
+    click('.review-tabs button:nth-child(4)');has('Это моё последнее предложение')
     button('Попробовать иначе')
-    for _ in range(4):click('.options button:first-child')
+    for _ in range(6):click('.options button:first-child')
     button('Посмотреть разбор');has('Общий язык найден.');size(390,844);snap('results-mobile')
     button('Прогресс');has('Цена долгосрочного контракта')
     req(p+'/refresh',{});time.sleep(1);has('Общий язык найден.');button('Прогресс');has('Цена долгосрочного контракта')
@@ -80,7 +87,7 @@ try:
     button('Конструктор')
     js('const e=document.querySelector("select");e.value="career";e.dispatchEvent(new Event("change",{bubbles:true}))')
     button('Протестировать');button('Начать переговоры')
-    for stage in range(4):
+    for stage in range(6):
         for w,h in [(1366,768),(390,844),(375,667),(320,568)]:
             size(w,h);fits('.options button, .input-row')
             assert js('return document.querySelector(".conversation").scrollHeight<=document.querySelector(".conversation").clientHeight+1'),('career clipping',stage,w,h)
@@ -90,15 +97,16 @@ try:
     button('Настройки');has('Получить API-ключ')
     assert js('return document.querySelector(".api-actions a").href')=='https://platform.openai.com/api-keys'
     assert js('return document.querySelector("[aria-label=\\"API-ключ OpenAI\\"]").type')=='password'
-    click('[role=switch]');assert js('return document.querySelector("[role=switch]").getAttribute("aria-checked")')=='true'
-    req(p+'/refresh',{});time.sleep(1);button('Настройки');assert js('return document.querySelector("[role=switch]").getAttribute("aria-checked")')=='true'
+    click('[aria-label="Тёмная тема"]');assert js('return document.querySelector(".app-root").classList.contains("theme-dark")');assert js('return getComputedStyle(document.querySelector(".app-root")).backgroundColor')=='rgb(16, 23, 19)'
+    click('[aria-label="Спокойный режим"]');assert js('return document.querySelector("[aria-label=\\"Спокойный режим\\"]").getAttribute("aria-checked")')=='true'
+    req(p+'/refresh',{});time.sleep(1);button('Настройки');assert js('return document.querySelector(".app-root").classList.contains("theme-dark")');assert js('return document.querySelector("[aria-label=\\"Спокойный режим\\"]").getAttribute("aria-checked")')=='true'
     button('Посмотреть');has('За каждой позицией — человек.');button('Пропустить знакомство');has('Настройки арены.')
     size(1440,900);snap('settings-desktop')
     # System reduced motion must disable CSS animation too.
-    click('[role=switch]')
+    click('[aria-label="Спокойный режим"]')
     req(p+'/goog/cdp/execute',{'cmd':'Emulation.setEmulatedMedia','params':{'features':[{'name':'prefers-reduced-motion','value':'reduce'}]}})
     button('Посмотреть');assert js('return getComputedStyle(document.querySelector(".welcome-core")).animationName')=='none'
     errors=[x for x in req(p+'/log',{'type':'browser'}) if x['level']=='SEVERE' and 'favicon' not in x['message']]
     assert not errors,errors
-    print('PASS: legend, 5 viewport sizes, no page overflow or hidden controls, tension escalation, losing/winning paths, review tabs, persistence, constructor, mission modal, draft persistence, protected retry, career at all sizes, API link, quiet mode, replay, reduced motion, clean console')
+    print('PASS: legend, 5 viewport sizes, no page overflow or hidden controls, six-stage scenarios, tension escalation, losing/winning paths, review tabs, persistence, constructor, mission modal, voice controls, dark theme, API link, quiet mode, replay, reduced motion, clean console')
 finally:req(p,method='DELETE')
