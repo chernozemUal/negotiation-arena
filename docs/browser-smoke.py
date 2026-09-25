@@ -88,7 +88,8 @@ try:
     button('Посмотреть разбор');has('Общий язык найден.')
     size(390,844)
     button('Настройки');has('Получить API-ключ')
-    assert js('return document.querySelector(".api-links a").href')=='https://platform.openai.com/api-keys'
+    assert js('return document.querySelector(".api-actions a").href')=='https://platform.openai.com/api-keys'
+    assert js('return document.querySelector("[aria-label=\\"API-ключ OpenAI\\"]").type')=='password'
     click('[role=switch]');assert js('return document.querySelector("[role=switch]").getAttribute("aria-checked")')=='true'
     req(p+'/refresh',{});time.sleep(1);button('Настройки');assert js('return document.querySelector("[role=switch]").getAttribute("aria-checked")')=='true'
     button('Посмотреть');has('За каждой позицией — человек.');button('Пропустить знакомство');has('Настройки арены.')
